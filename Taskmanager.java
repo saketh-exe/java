@@ -1,4 +1,5 @@
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -14,20 +15,21 @@ class Taskmanager {
         tasks task1 = CreateTask();
         System.out.println(task1);
 
-        AddNewUser(task1, "maya", "editor");
-        
+        User a = AddNewUser(task1);
+
         System.out.println(task1.Users);
-        
+
         System.out.println(task1.Users);
-        
+
         task1.Display();
-        
+
+        ChangeAdmin(task1,a);
         System.out.println(task1.Users);
-       
-        Noti(task1);
-        task1.WritetoCSV();
-        task1.DisplayfromCSV();
-        
+
+
+       SaveToCsv(task1);
+        Display(task1);
+
     }
 
 
@@ -58,17 +60,29 @@ class Taskmanager {
         task1.creation(TaskTitle, TaskD, TaskDD, Priority);
 
         System.out.println("Task has been created");
+        Noti(task1);
+       sc.close();
         return task1;
     }
 
-    public static void AddNewUser(tasks t , String a,String D){
+    public static User AddNewUser(tasks t ){
         Scanner sc = new Scanner(System.in);
+        System.out.println("Name of the User: ");
+        String a = sc.nextLine();
+        System.out.println("Name of the Desigination: ");
+        String D = sc.nextLine();
         User U1 = new User();
         U1.Creation(a);
         t.AddUsers(U1, D);
+        sc.close();
+        return U1;
     }
 
-    public static void ChangeMainUser(tasks t , User a){
+    public static void GetMainUser(tasks t){
+        t.AdminName();
+    }
+
+    public static void ChangeAdmin(tasks t , User a){
         t.ChangeMainUser(a);
     }
 
@@ -76,28 +90,35 @@ class Taskmanager {
         a.CompleteTask(t);
     }
 
-    public static void RemoveUser(tasks t , User a){
-        t.RemoveUser(a);
+    public static void RemoveUser(tasks t , User a, User b){
+        b.RemoveUser(a,t);
     }
+
+    public static void SaveToCsv(tasks t){
+    t.WritetoCSV();
+}
+
+    public static void Display(tasks a){
+    a.DisplayfromCSV();
+}
 
     public static void Noti(tasks a){
 
-        int t = (a.TimeLeft().getDays());
+        int t = (a.TimeLeft());
         if(t < 0 ){
-            if(t>-3){
-                System.out.println("ONLY "+Math.abs(t)+" DAYS LEFT");
-            }else{
 
-            }
+                System.out.println("ONLY "+Math.abs(t)+" DAYS LEFT");
+
         }else if(t == 0){
-            System.out.println("Submission is Today");
-        }else{
-            System.out.println("You are Past the due date");
+            System.out.println("DueDate Reached");
+            a.completed = true;
         }
     }
+
+
 }
 
-    
+
 class tasks {
 
     private String name;
@@ -106,13 +127,14 @@ class tasks {
     public String user;
     public String TaskPriority;
     public HashMap<User, String> Users = new HashMap<>();
-    private boolean completed;
+    boolean completed;
 
     @Override
     public String toString() {
         // for print function
         return this.name;
     }
+
 
     // constructor
     public void creation(String title, String description, LocalDate date, String Priority) {
@@ -137,7 +159,7 @@ class tasks {
         }
     }
 
-    public void Display() {
+    void Display() {
         // For displaying all details of the task at once
         System.out.println("Task : " + this.name);
         System.out.println("description : " + this.descript);
@@ -171,7 +193,7 @@ class tasks {
                 this.Users.put(old, "Co-editor");
                 b.Setprivilage(this, "Admin");
 
-                System.out.println("Main user is changed to " + AdminName());
+                System.out.println("Admin is changed to " + AdminName());
                 break;
             } else if (check.equalsIgnoreCase("N") || check.equalsIgnoreCase("No")) {
                 System.out.println("Nothing is changed");
@@ -182,6 +204,7 @@ class tasks {
                 check = sc.next();
             }
         } while (true);
+        sc.close();
     }
 
     public void AddUsers(User a, String b) {
@@ -199,70 +222,89 @@ class tasks {
             System.out.println("Your task has been closed. Hurray!!");
         }
     }
-
-    public String Status() {
+//
+    private String Status() {
         if (this.completed == true) {
             return "Completed";
         }
         return "Not Completed";
     }
 
-    public void RemoveUser(User a) {
-        this.Users.remove(a);
-        a.RemoveTask(this);
-        System.out.println("the user " + a + " is removed");
+    public void RemoveUser(User a,User b) {
+        if (!b.Tasks.get(this).equals("Admin")) {
+            System.out.println("You need to be in Admin Privilege for removing Another User");
+        } else {
+            this.Users.remove(a);
+            a.RemoveTask(this);
+            System.out.println("the user " + a + " is removed");
+        }
 
     }
-    public Period TimeLeft(){
-        
-       
+ //  
+    public int TimeLeft(){
+
+
         Period period = Period.between(this.DueDate, LocalDate.now());
-            
-        
-      return period;
+
+            if(period.getDays()<=0){
+            return period.getDays();
+            }return 0;
+
     }
 
     public void WritetoCSV(){
 
         try {
-            FileWriter f = new FileWriter("DATA.csv");
+            String filePath = "DATA.csv"; // Path to your CSV file
 
-            f.write("Task Name:,Task Description:,Due Date:,Users,State:\n"+this.name+","+this.descript+","+this.DueDate+","+this.Users+","+this.completed);
+            File file = new File(filePath);
+
+            // Check if the file already exists
+            boolean fileExists = file.exists();
+
+
+            FileWriter f = new FileWriter("DATA.csv" , true);
+
+            if (!fileExists) {
+                f.write("Task Name:,Task Description:,Due Date:,Admin:,State:,Priority:,TimeLeft:\n");
+            }
+
+            // Write data
+            f.write(this.name + "," + this.descript + "," + this.DueDate + "," + this.AdminName() + "," + this.Status() + ","+this.TaskPriority+","+Math.abs(TimeLeft())+"\n");
             f.close();
         } catch (IOException e) {
-            // TODO Auto-generated catch block
+
             e.printStackTrace();
         }
     }
 
-    public void DisplayfromCSV(){
-        String file = "DATA.csv";
-        BufferedReader reader = null;
-        String line = "";
+   public void DisplayfromCSV() {
+    String file = "DATA.csv";
+    BufferedReader reader = null;
+    String line = "";
 
+    try {
+        reader = new BufferedReader(new FileReader(file));
+
+        while ((line = reader.readLine()) != null) {
+            String[] row = line.split(",");
+            for (String index : row) {
+                System.out.printf("%-20s", index);
+            }
+            System.out.println();
+        }
+    } catch (Exception e) {
+        System.out.println("Something went wrong: " + e.getMessage());
+    } finally {
         try {
-            reader = new BufferedReader(new FileReader(file));
-
-            while ((line = reader.readLine()) != null) {
-                
-                String[] row = line.split(",");
-
-                for(String index : row){
-                    System.out.printf("%-10s",index);
-                }
-                System.out.println();
-            }
-        } catch (Exception e) {
-           System.out.println("smt happened");
-        }finally{
-            try {
+            if (reader != null)
                 reader.close();
-            } catch (IOException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-            }
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
+}
+
 
 }
 
@@ -281,7 +323,7 @@ class User{
         // will add this user to a specified task
         b.AddUsers(this,x);
     }
-   
+
     @Override
     public String toString(){
         // for print function
@@ -298,7 +340,10 @@ class User{
     public void RemoveTask(tasks a){
         this.Tasks.remove(a);
     }
+    void RemoveUser(User a, tasks b){
+        b.RemoveUser(a,this);
+    }
 }
-// 1) figure out how to add new tasks 
-// 2) correct that dict reading part 
+
+
 // 3) create a new program for displaying 
